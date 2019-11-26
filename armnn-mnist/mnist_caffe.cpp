@@ -48,7 +48,7 @@ int main(int argc, char** argv)
 
     // Import the Caffe model. Note: use CreateNetworkFromTextFile for text files.
     armnnCaffeParser::ICaffeParserPtr parser = armnnCaffeParser::ICaffeParser::Create();
-    armnn::INetworkPtr network = parser->CreateNetworkFromBinaryFile("model/bvlc_alexnet.caffemodel",
+    armnn::INetworkPtr network = parser->CreateNetworkFromBinaryFile("model/lenet_iter_9000.caffemodel",
                                                                    { }, // input taken from file if empty
                                                                    { "prob" }); // output node
     printf("2\n");
