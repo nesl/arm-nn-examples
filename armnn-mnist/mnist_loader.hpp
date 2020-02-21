@@ -7,6 +7,21 @@
 
 constexpr int g_kMnistImageByteSize = 28 * 28;
 
+#define SECDEEP_UUID \
+		{ 0x62a0838c, 0x1aeb, 0x11ea, \
+			{ 0x97, 0x8f, 0x2e, 0x72, 0x8c, 0xe8, 0x81, 0x25 } }
+
+/*
+  MACROs for the control commands
+*/
+#define READ_COMMANDS   1
+#define WRITE_COMMANDS  2
+#define JD_SUBMIT       3
+#define IRQ_HANDLING    4
+#define SANITIZE_DATA		5
+#define DESANITIZE_DATA	6
+
+
 // Helper struct for loading MNIST data
 struct MnistImage
 {

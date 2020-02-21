@@ -18,7 +18,6 @@
 
 #include "mnist_loader.hpp"
 
-
 // Helper function to make input tensors
 armnn::InputTensors MakeInputTensors(const std::pair<armnn::LayerBindingId,
     armnn::TensorInfo>& input,
@@ -35,6 +34,74 @@ armnn::OutputTensors MakeOutputTensors(const std::pair<armnn::LayerBindingId,
     return { { output.first, armnn::Tensor(output.second, outputTensorData) } };
 }
 
+void EncryptInput(float* image, float* output) {
+  TEEC_Result res;
+  TEEC_Operation op;
+	TEEC_UUID uuid = SECDEEP_UUID;
+	uint32_t err_origin;
+
+  /* Initialize a context connecting us to the TEE */
+	res = TEEC_InitializeContext(NULL, &ctx);
+	if (res != TEEC_SUCCESS){
+		printf("TEEC_InitializeContext failed with code 0x%x", res);
+  }
+
+	res = TEEC_OpenSession(&ctx, &sess, &uuid,
+			       TEEC_LOGIN_PUBLIC, NULL, NULL, &err_origin);
+	if (res != TEEC_SUCCESS){
+		printf("TEEC_Opensession failed with code 0x%x origin 0x%x",
+			res, err_origin);
+    return;
+  }
+
+  memset(&op, 0, sizeof(op));
+  op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT,
+           TEEC_MEMREF_TEMP_OUTPUT,
+					 TEEC_NONE, TEEC_NONE);
+	op.params[0].tmpref.buffer = (void *)image;
+  op.params[0].tmpref.size = g_kMnistImageByteSize * sizeof(float);
+  op.params[1].tmpref.buffer = (void *)output;
+  op.params[1].tmpref.size = g_kMnistImageByteSize * sizeof(float);
+
+	res = TEEC_InvokeCommand(&sess, SANITIZE_DATA, &op,
+				 &err_origin);
+	if (res != TEEC_SUCCESS) {
+		printf("TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
+			res, err_origin);
+    return;
+  }
+  printf("Renju: Encrypted\n");
+
+  memset(&op, 0, sizeof(op));
+  op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT,
+           TEEC_MEMREF_TEMP_OUTPUT,
+					 TEEC_NONE, TEEC_NONE);
+
+  float test[g_kMnistImageByteSize];
+  op.params[0].tmpref.buffer = (void *)output;
+  op.params[0].tmpref.size = g_kMnistImageByteSize * sizeof(float);
+  op.params[1].tmpref.buffer = (void *)test;
+  op.params[1].tmpref.size = g_kMnistImageByteSize * sizeof(float);
+
+  res = TEEC_InvokeCommand(&sess, DESANITIZE_DATA, &op,
+				 &err_origin);
+  if (res != TEEC_SUCCESS) {
+    printf("TEEC_InvokeCommand2 failed with code 0x%x origin 0x%x",
+      res, err_origin);
+    return;
+  }
+
+  // Validating
+  printf("\n\n\n\nTesting the results!!!\n\n\n");
+  for(int i = 0; i < g_kMnistImageByteSize; i++) {
+    if(test[i] - image[i] > 0.00001) {
+      printf("Yao shou la! Not accurate.\n");
+      printf("Image: %.3f, test: %.3f\n\n", image[i], test[i]);
+    }
+  }
+  printf("\n\n\n\n");
+}
+
 int main(int argc, char** argv)
 {
     // Load a test image and its correct label
@@ -44,7 +111,12 @@ int main(int argc, char** argv)
     if (input == nullptr)
         return 1;
 
+    float encrypted[g_kMnistImageByteSize];
+    EncryptInput(input->image, encrypted);
     printf("Loading image successfully\n");
+
+    // Encrypt the raw input here for evaluation.
+
 
     // Import the Caffe model. Note: use CreateNetworkFromTextFile for text files.
     armnnCaffeParser::ICaffeParserPtr parser = armnnCaffeParser::ICaffeParser::Create();
@@ -63,7 +135,7 @@ int main(int argc, char** argv)
     //armnn::IRuntimePtr runtime = armnn::IRuntime::Create(armnn::Compute::CpuAcc);
     armnn::IRuntime::CreationOptions options;
     armnn::IRuntimePtr runtime = armnn::IRuntime::Create(options);
-    armnn::IOptimizedNetworkPtr optNet = armnn::Optimize(*network, {armnn::Compute::CpuRef}, runtime->GetDeviceSpec());
+    armnn::IOptimizedNetworkPtr optNet = armnn::Optimize(*network, {armnn::Compute::GpuAcc}, runtime->GetDeviceSpec());
 
     printf("4\n");
 

@@ -17,3 +17,7 @@
 #include "TypesUtils.hpp"
 #include "Utils.hpp"
 #include "Version.hpp"
+
+#include <tee_client_api.h>
+TEEC_Context ctx;
+TEEC_Session sess;
