@@ -57,11 +57,12 @@ void EncryptInput(float* image, float* output) {
   memset(&op, 0, sizeof(op));
   op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT,
            TEEC_MEMREF_TEMP_OUTPUT,
-					 TEEC_NONE, TEEC_NONE);
+					 TEEC_VALUE_INOUT, TEEC_NONE);
 	op.params[0].tmpref.buffer = (void *)image;
   op.params[0].tmpref.size = g_kMnistImageByteSize * sizeof(float);
   op.params[1].tmpref.buffer = (void *)output;
   op.params[1].tmpref.size = g_kMnistImageByteSize * sizeof(float);
+  op.params[2].value.a = sizeof(float);
 
 	res = TEEC_InvokeCommand(&sess, SANITIZE_DATA, &op,
 				 &err_origin);
@@ -75,7 +76,7 @@ void EncryptInput(float* image, float* output) {
   memset(&op, 0, sizeof(op));
   op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT,
            TEEC_MEMREF_TEMP_OUTPUT,
-					 TEEC_NONE, TEEC_NONE);
+					 TEEC_VALUE_INOUT, TEEC_NONE);
 
   float test[g_kMnistImageByteSize];
   op.params[0].tmpref.buffer = (void *)output;
