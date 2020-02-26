@@ -83,6 +83,7 @@ void EncryptInput(float* image, float* output) {
   op.params[0].tmpref.size = g_kMnistImageByteSize * sizeof(float);
   op.params[1].tmpref.buffer = (void *)test;
   op.params[1].tmpref.size = g_kMnistImageByteSize * sizeof(float);
+  op.params[2].value.a = sizeof(float);
 
   res = TEEC_InvokeCommand(&sess, DESANITIZE_DATA, &op,
 				 &err_origin);
@@ -93,14 +94,18 @@ void EncryptInput(float* image, float* output) {
   }
 
   // Validating
-  printf("\n\n\n\nTesting the results!!!\n\n\n");
+  // printf("\n\n\n\nTesting the results!!!\n\n\n");
+  int accurate = 0;
+  int inaccurate = 0;
   for(int i = 0; i < g_kMnistImageByteSize; i++) {
     if(test[i] - image[i] > 0.00001) {
       printf("Yao shou la! Not accurate.\n");
       printf("Image: %.3f, test: %.3f\n\n", image[i], test[i]);
+      ++inaccurate;
     }
+    else ++accurate;
   }
-  printf("\n\n\n\n");
+  // printf("Total accurate: %d, inaccurate: %d.\n\n\n\n", accurate, inaccurate);
 }
 
 int main(int argc, char** argv)
