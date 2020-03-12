@@ -23,6 +23,7 @@ armnn::InputTensors MakeInputTensors(const std::pair<armnn::LayerBindingId,
     armnn::TensorInfo>& input,
     const void* inputTensorData)
 {
+    // printf("RL: Making input tensor.\n");
     return { { input.first, armnn::ConstTensor(input.second, inputTensorData) } };
 }
 
@@ -105,6 +106,10 @@ void EncryptInput(float* image, float* output) {
     }
     else ++accurate;
   }
+  TEEC_CloseSession(&sess);
+  TEEC_FinalizeContext(&ctx);
+
+  // memcpy(image, output, g_kMnistImageByteSize * sizeof(float));
   // printf("Total accurate: %d, inaccurate: %d.\n\n\n\n", accurate, inaccurate);
 }
 
@@ -117,8 +122,8 @@ int main(int argc, char** argv)
     if (input == nullptr)
         return 1;
 
-    float encrypted[g_kMnistImageByteSize];
-    EncryptInput(input->image, encrypted);
+    // float encrypted[g_kMnistImageByteSize];
+    // EncryptInput(input->image, encrypted);
     printf("Loading image successfully\n");
 
     // Encrypt the raw input here for evaluation.
@@ -149,6 +154,7 @@ int main(int argc, char** argv)
     armnn::NetworkId networkIdentifier;
     runtime->LoadNetwork(networkIdentifier, std::move(optNet));
 
+    // runtime->EncryptInput(input->image, g_kMnistImageByteSize, sizeof(float), true);
     printf("5\n");
 
     // Run a single inference on the test image

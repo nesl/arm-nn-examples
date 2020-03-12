@@ -151,7 +151,7 @@ class Tensor : public BaseTensor<void*>
 {
 public:
     /// Brings in the constructors and assignment operator.
-    using BaseTensor<void*>::BaseTensor; 
+    using BaseTensor<void*>::BaseTensor;
 };
 
 /// A tensor defined by a TensorInfo (shape and data type) and an immutable backing store.
@@ -159,7 +159,7 @@ class ConstTensor : public BaseTensor<const void*>
 {
 public:
     /// Brings in the constructors and assignment operator.
-    using BaseTensor<const void*>::BaseTensor; 
+    using BaseTensor<const void*>::BaseTensor;
     ConstTensor() : BaseTensor<const void*>() {} // This needs to be redefined explicitly??
 
     /// Can be implicitly constructed from non-const Tensor.
