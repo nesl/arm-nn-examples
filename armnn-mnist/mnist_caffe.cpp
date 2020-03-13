@@ -72,7 +72,7 @@ void EncryptInput(float* image, float* output) {
 			res, err_origin);
     return;
   }
-  printf("Renju: Encrypted\n");
+  // printf("Renju: Encrypted\n");
 
   memset(&op, 0, sizeof(op));
   op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT,
@@ -96,16 +96,16 @@ void EncryptInput(float* image, float* output) {
 
   // Validating
   // printf("\n\n\n\nTesting the results!!!\n\n\n");
-  int accurate = 0;
-  int inaccurate = 0;
-  for(int i = 0; i < g_kMnistImageByteSize; i++) {
-    if(test[i] - image[i] > 0.00001) {
-      printf("Yao shou la! Not accurate.\n");
-      printf("Image: %.3f, test: %.3f\n\n", image[i], test[i]);
-      ++inaccurate;
-    }
-    else ++accurate;
-  }
+  // int accurate = 0;
+  // int inaccurate = 0;
+  // for(int i = 0; i < g_kMnistImageByteSize; i++) {
+  //   if(test[i] - image[i] > 0.00001) {
+  //     printf("Yao shou la! Not accurate.\n");
+  //     printf("Image: %.3f, test: %.3f\n\n", image[i], test[i]);
+  //     ++inaccurate;
+  //   }
+  //   else ++accurate;
+  // }
   TEEC_CloseSession(&sess);
   TEEC_FinalizeContext(&ctx);
 
@@ -122,9 +122,9 @@ int main(int argc, char** argv)
     if (input == nullptr)
         return 1;
 
-    // float encrypted[g_kMnistImageByteSize];
-    // EncryptInput(input->image, encrypted);
-    printf("Loading image successfully\n");
+    float encrypted[g_kMnistImageByteSize];
+    EncryptInput(input->image, encrypted);
+    // printf("Loading image successfully\n");
 
     // Encrypt the raw input here for evaluation.
 
@@ -134,13 +134,13 @@ int main(int argc, char** argv)
     armnn::INetworkPtr network = parser->CreateNetworkFromBinaryFile("model/lenet_iter_9000.caffemodel",
                                                                    { }, // input taken from file if empty
                                                                    { "prob" }); // output node
-    printf("2\n");
+    // printf("2\n");
 
     // Find the binding points for the input and output nodes
     armnnCaffeParser::BindingPointInfo inputBindingInfo = parser->GetNetworkInputBindingInfo("data");
     armnnCaffeParser::BindingPointInfo outputBindingInfo = parser->GetNetworkOutputBindingInfo("prob");
 
-    printf("3\n");
+    // printf("3\n");
 
     // Optimize the network for a specific runtime compute device, e.g. CpuAcc, GpuAcc
     //armnn::IRuntimePtr runtime = armnn::IRuntime::Create(armnn::Compute::CpuAcc);
@@ -148,32 +148,32 @@ int main(int argc, char** argv)
     armnn::IRuntimePtr runtime = armnn::IRuntime::Create(options);
     armnn::IOptimizedNetworkPtr optNet = armnn::Optimize(*network, {armnn::Compute::GpuAcc}, runtime->GetDeviceSpec());
 
-    printf("4\n");
+    // printf("4\n");
 
     // Load the optimized network onto the runtime device
     armnn::NetworkId networkIdentifier;
     runtime->LoadNetwork(networkIdentifier, std::move(optNet));
 
     // runtime->EncryptInput(input->image, g_kMnistImageByteSize, sizeof(float), true);
-    printf("5\n");
+    // printf("5\n");
 
     // Run a single inference on the test image
     std::array<float, 10> output;
     armnn::InputTensors input_tensor = MakeInputTensors(inputBindingInfo, &input->image[0]);
-    printf("8\n");
+    // printf("8\n");
 
     armnn::OutputTensors output_tensor = MakeOutputTensors(outputBindingInfo, &output[0]);
-    printf("9\n");
+    // printf("9\n");
 
     armnn::Status ret = runtime->EnqueueWorkload(networkIdentifier,
                                                  input_tensor,
                                                  output_tensor);
 
-    printf("6\n");
+    // printf("6\n");
 
     // Convert 1-hot output to an integer label and print
     int label = std::distance(output.begin(), std::max_element(output.begin(), output.end()));
-    printf("7\n");
+    // printf("7\n");
 
     std::cout << "Predicted: " << label << std::endl;
     std::cout << "   Actual: " << input->label << std::endl;
