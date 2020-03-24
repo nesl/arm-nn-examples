@@ -15,7 +15,8 @@
 #include "armnn/Tensor.hpp"
 #include "armnn/INetwork.hpp"
 #include "armnnCaffeParser/ICaffeParser.hpp"
-
+#include <sys/time.h>
+#include <time.h>
 #include "mnist_loader.hpp"
 
 // Helper function to make input tensors
@@ -74,38 +75,6 @@ void EncryptInput(float* image, float* output) {
   }
   // printf("Renju: Encrypted\n");
 
-  memset(&op, 0, sizeof(op));
-  op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT,
-           TEEC_MEMREF_TEMP_OUTPUT,
-					 TEEC_VALUE_INOUT, TEEC_NONE);
-
-  float test[g_kMnistImageByteSize];
-  op.params[0].tmpref.buffer = (void *)output;
-  op.params[0].tmpref.size = g_kMnistImageByteSize * sizeof(float);
-  op.params[1].tmpref.buffer = (void *)test;
-  op.params[1].tmpref.size = g_kMnistImageByteSize * sizeof(float);
-  op.params[2].value.a = sizeof(float);
-
-  res = TEEC_InvokeCommand(&sess, DESANITIZE_DATA, &op,
-				 &err_origin);
-  if (res != TEEC_SUCCESS) {
-    printf("TEEC_InvokeCommand2 failed with code 0x%x origin 0x%x",
-      res, err_origin);
-    return;
-  }
-
-  // Validating
-  // printf("\n\n\n\nTesting the results!!!\n\n\n");
-  // int accurate = 0;
-  // int inaccurate = 0;
-  // for(int i = 0; i < g_kMnistImageByteSize; i++) {
-  //   if(test[i] - image[i] > 0.00001) {
-  //     printf("Yao shou la! Not accurate.\n");
-  //     printf("Image: %.3f, test: %.3f\n\n", image[i], test[i]);
-  //     ++inaccurate;
-  //   }
-  //   else ++accurate;
-  // }
   TEEC_CloseSession(&sess);
   TEEC_FinalizeContext(&ctx);
 
@@ -124,58 +93,85 @@ int main(int argc, char** argv)
 
     float encrypted[g_kMnistImageByteSize];
     EncryptInput(input->image, encrypted);
-    // printf("Loading image successfully\n");
+    printf("Loading image successfully\n");
 
     // Encrypt the raw input here for evaluation.
+    struct timespec loading_start, loading_end, inferencing_start, inferencing_end;
 
-
+    clock_gettime(CLOCK_MONOTONIC, &loading_start);
     // Import the Caffe model. Note: use CreateNetworkFromTextFile for text files.
     armnnCaffeParser::ICaffeParserPtr parser = armnnCaffeParser::ICaffeParser::Create();
-    armnn::INetworkPtr network = parser->CreateNetworkFromBinaryFile("model/lenet_iter_9000.caffemodel",
+    const char* file_name = "model/alexnet_compressed.caffemodel";
+    armnn::INetworkPtr network = parser->CreateNetworkFromBinaryFile(file_name,
                                                                    { }, // input taken from file if empty
-                                                                   { "prob" }); // output node
-    // printf("2\n");
+                                                                   {"prob"}); // output node
+    printf("2\n");
 
     // Find the binding points for the input and output nodes
     armnnCaffeParser::BindingPointInfo inputBindingInfo = parser->GetNetworkInputBindingInfo("data");
     armnnCaffeParser::BindingPointInfo outputBindingInfo = parser->GetNetworkOutputBindingInfo("prob");
 
-    // printf("3\n");
+    printf("3\n");
 
     // Optimize the network for a specific runtime compute device, e.g. CpuAcc, GpuAcc
     //armnn::IRuntimePtr runtime = armnn::IRuntime::Create(armnn::Compute::CpuAcc);
     armnn::IRuntime::CreationOptions options;
     armnn::IRuntimePtr runtime = armnn::IRuntime::Create(options);
-    armnn::IOptimizedNetworkPtr optNet = armnn::Optimize(*network, {armnn::Compute::GpuAcc}, runtime->GetDeviceSpec());
+    // armnn::IOptimizedNetworkPtr optNet = armnn::Optimize(*network, {armnn::Compute::GpuAcc, armnn::Compute::CpuAcc}, runtime->GetDeviceSpec());
+    armnn::IOptimizedNetworkPtr optNet = armnn::Optimize(*network, {armnn::Compute::GpuAcc, armnn::Compute::CpuAcc}, runtime->GetDeviceSpec());
 
-    // printf("4\n");
+    printf("4\n");
 
     // Load the optimized network onto the runtime device
     armnn::NetworkId networkIdentifier;
     runtime->LoadNetwork(networkIdentifier, std::move(optNet));
 
     // runtime->EncryptInput(input->image, g_kMnistImageByteSize, sizeof(float), true);
-    // printf("5\n");
+    printf("5\n");
 
     // Run a single inference on the test image
-    std::array<float, 10> output;
-    armnn::InputTensors input_tensor = MakeInputTensors(inputBindingInfo, &input->image[0]);
-    // printf("8\n");
+    std::array<float, 1000> output;
+    float image[3][227][227] = {{{100}}, {{150}}, {{200}}};
+    // float output[3][224][224];
+    armnn::InputTensors input_tensor = MakeInputTensors(inputBindingInfo, image);//&input->image[0]);
+    printf("8\n");
 
-    armnn::OutputTensors output_tensor = MakeOutputTensors(outputBindingInfo, &output[0]);
-    // printf("9\n");
+    armnn::OutputTensors output_tensor = MakeOutputTensors(outputBindingInfo, &output);// &output[0]);
+    printf("9\n");
 
+    clock_gettime(CLOCK_MONOTONIC, &loading_end);
+
+    clock_gettime(CLOCK_MONOTONIC, &inferencing_start);
+    clock_t start_t, end_t;
+    start_t = clock();
     armnn::Status ret = runtime->EnqueueWorkload(networkIdentifier,
                                                  input_tensor,
                                                  output_tensor);
 
-    // printf("6\n");
+    printf("6\n");
+    end_t = clock();
+    clock_gettime(CLOCK_MONOTONIC, &inferencing_end);
 
     // Convert 1-hot output to an integer label and print
     int label = std::distance(output.begin(), std::max_element(output.begin(), output.end()));
-    // printf("7\n");
+    printf("7\n");
 
-    std::cout << "Predicted: " << label << std::endl;
-    std::cout << "   Actual: " << input->label << std::endl;
+    // std::cout << "Predicted: " << label << std::endl;
+
+    ofstream myfile (file_name + 6, fstream::in | fstream::out | fstream::trunc);
+    myfile << "Loading model time(ms):\t" <<
+      (loading_end.tv_sec - loading_start.tv_sec) * 1000 +
+      (loading_end.tv_nsec - loading_start.tv_nsec) / 1000000
+    << "\n";
+
+    myfile << "Benchmark Infering model time (ms):\t" <<
+      (inferencing_end.tv_sec - inferencing_start.tv_sec) * 1000 +
+      (inferencing_end.tv_nsec - inferencing_start.tv_nsec) / 1000000
+    << "\n";
+
+    myfile << "Infering model time (clock CPU (ms)):\t" <<
+      double(end_t - start_t) / CLOCKS_PER_SEC * 1000
+    << "\n";
+    myfile.close();
     return 0;
 }

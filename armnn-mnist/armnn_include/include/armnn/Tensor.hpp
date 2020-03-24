@@ -42,7 +42,7 @@ public:
     unsigned int GetNumDimensions() const { return m_NumDimensions; }
     unsigned int GetNumElements() const;
 
-private:
+// private:
     std::array<unsigned int, MaxNumOfTensorDimensions> m_Dimensions;
     unsigned int m_NumDimensions;
 
